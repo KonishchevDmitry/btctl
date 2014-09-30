@@ -13,7 +13,7 @@ func GetNetworkUsage() (packets uint64, bytes uint64, err error) {
 	var chainPackets, chainBytes uint64
 
 	for _, iptables := range(allIptables) {
-		stdout, err = iptables("ipt.outd")
+		stdout, err = iptables("ipt.out")
 		if err != nil {
 			return
 		}
