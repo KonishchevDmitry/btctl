@@ -13,12 +13,12 @@ func GetNetworkUsage() (packets uint64, bytes uint64, err error) {
 	var chainPackets, chainBytes uint64
 
 	for _, iptables := range(allIptables) {
-		stdout, err = iptables("ipt.out")
+		stdout, err = iptables("-L", "-nvx")
 		if err != nil {
 			return
 		}
 
-		chainPackets, chainBytes, err = getNetworkUsage(stdout, "bad_tcp_new_packet")
+		chainPackets, chainBytes, err = getNetworkUsage(stdout, "network_usage_stats")
 		if err != nil {
 			return
 		}
@@ -85,7 +85,7 @@ func ip6tables(args ...string) (stdout string, err error) {
 }
 
 func runIptables(executable string, args ...string) (stdout string, err error) {
-	stdout, err = util.RunCmd("cat", args...)
+	stdout, err = util.RunCmd(executable, args...)
 	if err != nil {
 		err = util.Error("%s execution error: %s", executable, err)
 	}

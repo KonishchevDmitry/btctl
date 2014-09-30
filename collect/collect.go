@@ -10,6 +10,8 @@ import (
 )
 
 type MainLoop struct {
+	packets uint64
+	bytes uint64
 	usageFile *os.File
 }
 
@@ -18,8 +20,9 @@ func (loop *MainLoop) Init() (err error) {
 	return
 }
 
-func (loop *MainLoop) TickHandler() error {
-	return collect(loop.usageFile)
+func (loop *MainLoop) TickHandler() (err error) {
+	loop.packets, loop.bytes, err = collect(loop.packets, loop.bytes, loop.usageFile)
+	return
 }
 
 func (loop *MainLoop) Close() {
@@ -31,18 +34,18 @@ func (loop *MainLoop) Close() {
 	}
 }
 
-func collect(usageFile *os.File) error {
+func collect(prevPackets uint64, prevBytes uint64, usageFile *os.File) (uint64, uint64, error) {
 	packets, bytes, err := ipt.GetNetworkUsage()
 	if err != nil {
-		return util.Error("Unable to get network usage stats: %s", err)
+		return prevPackets, prevBytes, util.Error("Unable to get network usage stats: %s", err)
 	}
 
-	_, err = fmt.Fprintln(usageFile, time.Now().Format("2006.01.02 15:04:05"), packets, bytes)
+	_, err = fmt.Fprintln(usageFile, time.Now().Format("2006.01.02 15:04:05"), packets, bytes, packets - prevPackets, bytes - prevBytes)
 	if err != nil {
-		return util.Error("Failed to write network usage stats: %s.", err)
+		return packets, bytes, util.Error("Failed to write network usage stats: %s.", err)
 	}
 
-	return nil
+	return packets, bytes, nil
 }
 
 func main() {
