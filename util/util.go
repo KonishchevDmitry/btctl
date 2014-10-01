@@ -61,6 +61,10 @@ func Loop(mainLoop MainLoop, tickInterval time.Duration) (err error) {
 		}
 	}
 
+	if err != nil {
+		os.Exit(1)
+	}
+
 	return
 }
 
