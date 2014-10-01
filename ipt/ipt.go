@@ -4,7 +4,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-
 	"btctl/util"
 )
 
@@ -36,6 +35,8 @@ func GetNetworkUsage() (stat NetworkUsage, err error) {
 }
 
 func getNetworkUsage(stdout string, statChain string) (packets uint64, bytes uint64, err error) {
+	var rulePackets, ruleBytes uint64
+
 	ruleStatRe, err := regexp.Compile(`^\s*(\d+)\s+(\d+)\s+([^[:space:]]+)`)
 	if err != nil {
 		return
@@ -66,11 +67,14 @@ func getNetworkUsage(stdout string, statChain string) (packets uint64, bytes uin
 				continue
 			}
 
-			rulePackets, err := strconv.ParseUint(matches[1], 10, 64)
-			ruleBytes, err := strconv.ParseUint(matches[2], 10, 64)
-
+			rulePackets, err = strconv.ParseUint(matches[1], 10, 64)
 			if err != nil {
-				return packets, bytes, err
+				return
+			}
+
+			ruleBytes, err = strconv.ParseUint(matches[2], 10, 64)
+			if err != nil {
+				return
 			}
 
 			packets += rulePackets
