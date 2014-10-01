@@ -9,46 +9,60 @@ import (
 	"btctl/util"
 )
 
-type MainLoop struct {
-	packets uint64
-	bytes uint64
+type collector struct {
 	usageFile *os.File
+	stat ipt.NetworkUsage
 }
 
-func (loop *MainLoop) Init() (err error) {
-	loop.usageFile, err = os.Create("network-usage.txt")
+type mainLoop struct {
+	collector collector
+}
+
+func (c *collector) Init() (err error) {
+	c.usageFile, err = os.Create("network-usage.txt")
 	return
 }
 
-func (loop *MainLoop) TickHandler() (err error) {
-	loop.packets, loop.bytes, err = collect(loop.packets, loop.bytes, loop.usageFile)
-	return
+func (c *collector) Collect() error {
+	stat, err := ipt.GetNetworkUsage()
+	if err != nil {
+		return util.Error("Unable to get network usage stats: %s", err)
+	}
+
+	_, err = fmt.Fprintln(c.usageFile, time.Now().Format("2006.01.02 15:04:05"),
+		stat.Packets, stat.Bytes, stat.Packets - c.stat.Packets, stat.Bytes - c.stat.Bytes)
+
+	if err != nil {
+		return util.Error("Failed to write network usage stats: %s.", err)
+	}
+
+	c.stat = stat
+
+	return nil
 }
 
-func (loop *MainLoop) Close() {
-	if loop.usageFile != nil {
-		if err := loop.usageFile.Close(); err != nil {
-			log.Printf("Failed to close file '%s': %s.", loop.usageFile.Name(), err)
+func (c *collector) Close() {
+	if c.usageFile != nil {
+		if err := c.usageFile.Close(); err != nil {
+			log.Printf("Failed to close file '%s': %s.", c.usageFile.Name(), err)
 		}
-		loop.usageFile = nil
+		c.usageFile = nil
 	}
 }
 
-func collect(prevPackets uint64, prevBytes uint64, usageFile *os.File) (uint64, uint64, error) {
-	packets, bytes, err := ipt.GetNetworkUsage()
-	if err != nil {
-		return prevPackets, prevBytes, util.Error("Unable to get network usage stats: %s", err)
-	}
+func (loop *mainLoop) Init() (err error) {
+	return loop.collector.Init()
+}
 
-	_, err = fmt.Fprintln(usageFile, time.Now().Format("2006.01.02 15:04:05"), packets, bytes, packets - prevPackets, bytes - prevBytes)
-	if err != nil {
-		return packets, bytes, util.Error("Failed to write network usage stats: %s.", err)
-	}
+func (loop *mainLoop) TickHandler() (err error) {
+	err = loop.collector.Collect()
+	return
+}
 
-	return packets, bytes, nil
+func (loop *mainLoop) Close() {
+	loop.collector.Close()
 }
 
 func main() {
-	var mainLoop MainLoop
-	util.Loop(&mainLoop, time.Second)
+	util.Loop(new(mainLoop), time.Second)
 }

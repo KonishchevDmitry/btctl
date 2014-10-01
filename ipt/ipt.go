@@ -8,9 +8,14 @@ import (
 	"btctl/util"
 )
 
-func GetNetworkUsage() (packets uint64, bytes uint64, err error) {
+type NetworkUsage struct {
+	Packets uint64
+	Bytes uint64
+}
+
+func GetNetworkUsage() (stat NetworkUsage, err error) {
 	var stdout string
-	var chainPackets, chainBytes uint64
+	var packets, bytes uint64
 
 	for _, iptables := range(allIptables) {
 		stdout, err = iptables("-L", "-nvx")
@@ -18,13 +23,13 @@ func GetNetworkUsage() (packets uint64, bytes uint64, err error) {
 			return
 		}
 
-		chainPackets, chainBytes, err = getNetworkUsage(stdout, "network_usage_stats")
+		packets, bytes, err = getNetworkUsage(stdout, "network_usage_stats")
 		if err != nil {
 			return
 		}
 
-		packets += chainPackets
-		bytes += chainBytes
+		stat.Packets += packets
+		stat.Bytes += bytes
 	}
 
 	return
