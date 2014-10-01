@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"log"
 	"os"
@@ -9,18 +10,25 @@ import (
 	"btctl/util"
 )
 
+
 type collector struct {
 	usageFile *os.File
+	usageWriter *bufio.Writer
+
 	stat ipt.NetworkUsage
 }
 
-type mainLoop struct {
-	collector collector
-}
+func (c *collector) Init() error {
+	var err error
 
-func (c *collector) Init() (err error) {
 	c.usageFile, err = os.Create("network-usage.txt")
-	return
+	if err != nil {
+		return err
+	}
+
+	c.usageWriter = bufio.NewWriter(c.usageFile)
+
+	return nil
 }
 
 func (c *collector) Collect() error {
@@ -29,7 +37,7 @@ func (c *collector) Collect() error {
 		return util.Error("Unable to get network usage stats: %s", err)
 	}
 
-	_, err = fmt.Fprintln(c.usageFile, time.Now().Format("2006.01.02 15:04:05"),
+	_, err = fmt.Fprintln(c.usageWriter, time.Now().Format("2006.01.02 15:04:05"),
 		stat.Packets, stat.Bytes, stat.Packets - c.stat.Packets, stat.Bytes - c.stat.Bytes)
 
 	if err != nil {
@@ -42,12 +50,24 @@ func (c *collector) Collect() error {
 }
 
 func (c *collector) Close() {
+	if c.usageWriter != nil {
+		if err := c.usageWriter.Flush(); err != nil {
+			log.Printf("Failed to write network usage stats: %s.", err)
+		}
+		c.usageWriter = nil
+	}
+
 	if c.usageFile != nil {
 		if err := c.usageFile.Close(); err != nil {
 			log.Printf("Failed to close file '%s': %s.", c.usageFile.Name(), err)
 		}
 		c.usageFile = nil
 	}
+}
+
+
+type mainLoop struct {
+	collector collector
 }
 
 func (loop *mainLoop) Init() (err error) {
@@ -62,6 +82,7 @@ func (loop *mainLoop) TickHandler() (err error) {
 func (loop *mainLoop) Close() {
 	loop.collector.Close()
 }
+
 
 func main() {
 	util.Loop(new(mainLoop), time.Second)
