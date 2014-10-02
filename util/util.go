@@ -42,17 +42,15 @@ func Loop(mainLoop MainLoop, tickInterval time.Duration) (err error) {
 		return
 	}
 
-	tickTimer := time.NewTimer(tickInterval)
-	defer tickTimer.Stop()
+	ticker := time.NewTicker(tickInterval)
+	defer ticker.Stop()
 
 	for stop := false; !stop; {
-		tickTimer.Reset(tickInterval)
-
 		select {
 		case <-signalChannel:
 			log.Println("Got termination signal. Exiting...")
 			stop = true
-		case <-tickTimer.C:
+		case <-ticker.C:
 			err = mainLoop.TickHandler()
 			if err != nil {
 				log.Println(err)
