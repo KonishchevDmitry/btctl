@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"btctl/dmc"
 	"btctl/ipt"
 	"btctl/util"
 )
@@ -39,13 +40,24 @@ func drill(path string) error {
 }
 
 func readUsageData(scanner *bufio.Scanner) error {
+	var processor dmc.Dmc
+	var prevStatTIme time.Time
+
 	for scanner.Scan() {
 		statTime, stat, err := getNetworkUsage(scanner.Text())
 		if err != nil {
 			return err
 		}
 
-		log.Println(statTime, stat)
+		if statTime.Sub(prevStatTIme) < dmc.NetworkUsageCollectionPeriod {
+			continue
+		}
+
+		if e := processor.OnNetworkUsageStat(statTime, stat); e != nil {
+			return e
+		}
+
+		prevStatTIme = statTime
 	}
 
 	return nil
