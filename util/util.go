@@ -16,7 +16,7 @@ import (
 
 type MainLoop interface {
 	Init() error
-	TickHandler() error
+	OnTick() error
 	Close()
 }
 
@@ -68,8 +68,17 @@ func SetupSignalHandling() <-chan os.Signal {
 	return channel
 }
 
-func Loop(mainLoop MainLoop, tickInterval time.Duration) (err error) {
+func Loop(mainLoop MainLoop, tickInterval time.Duration) {
+	var err error = nil
+
 	signalChannel := SetupSignalHandling()
+
+	defer func() {
+		if err != nil {
+			log.Error("%s", err)
+			os.Exit(1)
+		}
+	}()
 
 	defer mainLoop.Close()
 	err = mainLoop.Init()
@@ -80,25 +89,20 @@ func Loop(mainLoop MainLoop, tickInterval time.Duration) (err error) {
 	ticker := time.NewTicker(tickInterval)
 	defer ticker.Stop()
 
-	for stop := false; !stop; {
-		select {
-		case <-signalChannel:
-			log.Info("Got termination signal. Exiting...")
-			stop = true
-		case <-ticker.C:
-			err = mainLoop.TickHandler()
+	loop:
+		for {
+			err = mainLoop.OnTick()
 			if err != nil {
-				log.Error("%s", err)
-				stop = true
+				break
+			}
+
+			select {
+			case <-signalChannel:
+				log.Info("Got a termination signal. Exiting...")
+				break loop
+			case <-ticker.C:
 			}
 		}
-	}
-
-	if err != nil {
-		os.Exit(1)
-	}
-
-	return
 }
 
 func RunCmd(name string, args ...string) (stdout string, runError error) {

@@ -12,7 +12,7 @@ type NetworkUsage struct {
 	Bytes uint64
 }
 
-func GetNetworkUsage() (stat NetworkUsage, err error) {
+func GetNetworkUsage(chain string) (stat NetworkUsage, err error) {
 	var stdout string
 	var packets, bytes uint64
 
@@ -22,7 +22,7 @@ func GetNetworkUsage() (stat NetworkUsage, err error) {
 			return
 		}
 
-		packets, bytes, err = getNetworkUsage(stdout, "network_usage_stats")
+		packets, bytes, err = getNetworkUsage(stdout, chain)
 		if err != nil {
 			return
 		}
