@@ -1,15 +1,13 @@
 package main
 
 import (
-	"bufio"
-	"fmt"
-	"log"
-	"os"
-	"time"
 	"btctl/ipt"
 	"btctl/util"
+	"bufio"
+	"fmt"
+	"os"
+	"time"
 )
-
 
 type collector struct {
 	usageFile *os.File
@@ -17,6 +15,8 @@ type collector struct {
 
 	stat ipt.NetworkUsage
 }
+
+var log = util.MustGetLogger("collect")
 
 func (c *collector) Init() error {
 	var err error
@@ -52,14 +52,14 @@ func (c *collector) Collect() error {
 func (c *collector) Close() {
 	if c.usageWriter != nil {
 		if err := c.usageWriter.Flush(); err != nil {
-			log.Printf("Failed to write network usage stats: %s.", err)
+			log.Error("Failed to write network usage stats: %s.", err)
 		}
 		c.usageWriter = nil
 	}
 
 	if c.usageFile != nil {
 		if err := c.usageFile.Close(); err != nil {
-			log.Printf("Failed to close file '%s': %s.", c.usageFile.Name(), err)
+			log.Error("Failed to close file '%s': %s.", c.usageFile.Name(), err)
 		}
 		c.usageFile = nil
 	}
@@ -85,5 +85,7 @@ func (loop *mainLoop) Close() {
 
 
 func main() {
+	util.InitFlags()
+	util.MustInitLogging(false)
 	util.Loop(new(mainLoop), time.Second)
 }

@@ -1,10 +1,10 @@
-// Decision-making center.
+// Decision-Making Center.
 package dmc
 
 import (
-	"log"
-	"time"
 	"btctl/ipt"
+	"btctl/util"
+	"time"
 )
 
 const NetworkUsageCollectionPeriod time.Duration = 5 * time.Second
@@ -13,6 +13,7 @@ const bytesSpeedThreshold = 2000
 const moratoriumTime = 5 * time.Minute
 const noUsageMoratoriumTime = 1 * time.Minute
 
+var log = util.MustGetLogger("dmc")
 
 type Dmc struct {
 	lastStat ipt.NetworkUsage
@@ -49,13 +50,13 @@ func (dmc *Dmc) onNetworkUsageStat(statTime time.Time, stat ipt.NetworkUsage) bo
 	bytes := int64(stat.Bytes) - int64(dmc.lastStat.Bytes)
 
 	if packets < 0 || bytes < 0 {
-		log.Println("iptables counters reset detected.")
+		log.Debug("iptables counters reset detected.")
 		return false
 	}
 
 	period := statTime.Sub(dmc.lastStatTime)
 	if period < NetworkUsageCollectionPeriod / 2 {
-		log.Println("Clock screw detected!")
+		log.Error("Clock screw detected!")
 		return false
 	}
 
@@ -78,20 +79,22 @@ func (dmc *Dmc) onNetworkUsageStat(statTime time.Time, stat ipt.NetworkUsage) bo
 
 	if packetsSpeed >= packetsSpeedThreshold || bytesSpeed >= bytesSpeedThreshold {
 		if dmc.moratoriumTill.IsZero() {
-			log.Printf("Turn on the moratorium. Packets speed: %d, bytes speed: %d.",
+			log.Info("Turn on the moratorium. Packets speed: %d, bytes speed: %d.",
 				uint64(packetsSpeed), uint64(bytesSpeed))
 		}
 
 		dmc.moratoriumTill = statTime.Add(moratoriumTime)
 	}
 
-	log.Println(statTime, period, packets, bytes, packetsSpeed, bytesSpeed)
+	// TODO
+	log.Debug("Usage: %s %d/%d %.1f/%.1f", statTime.Format("2006.01.02 15:04:05"),
+		packets, bytes, packetsSpeed, bytesSpeed)
 
 	return true
 }
 
 func (dmc *Dmc) turnOffMoratorium(reason string) {
-	log.Printf("Turn off the moratorium: %s.", reason)
+	log.Info("Turn off the moratorium: %s.", reason)
 	dmc.moratoriumTill = *new(time.Time)
 	dmc.noUsageSince = *new(time.Time)
 }

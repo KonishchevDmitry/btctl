@@ -1,10 +1,11 @@
 package util
 
 import (
+	"btctl/logging"
 	"bytes"
 	"errors"
+	"flag"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -17,6 +18,40 @@ type MainLoop interface {
 	Init() error
 	TickHandler() error
 	Close()
+}
+
+var log = MustGetLogger("util")
+var debugMode *bool;
+
+func InitFlags() {
+	debugMode = flag.Bool("debug", false, "debug mode")
+	flag.Parse()
+}
+
+func MustInitLogging(withTime bool) {
+	level := logging.INFO
+	format := "%{level:.1s}: %{message}"
+	timeFormat := ""
+
+	if withTime {
+		timeFormat = "%{time:2006.01.02 15:04:05} "
+	}
+
+	if debugMode != nil && *debugMode {
+		level = logging.DEBUG
+		format = " %{shortfile} " + format
+		timeFormat = "%{time:2006.01.02 15:04:05.000} "
+	}
+
+	format = timeFormat + format
+
+	logging.SetBackend(logging.NewLogBackend(os.Stderr, "", 0))
+	logging.SetFormatter(logging.MustStringFormatter(format))
+	logging.SetLevel(level, "")
+}
+
+func MustGetLogger(name string) *logging.Logger {
+	return logging.MustGetLogger(name)
 }
 
 func Error(message string, args ...interface{}) error {
@@ -48,12 +83,12 @@ func Loop(mainLoop MainLoop, tickInterval time.Duration) (err error) {
 	for stop := false; !stop; {
 		select {
 		case <-signalChannel:
-			log.Println("Got termination signal. Exiting...")
+			log.Info("Got termination signal. Exiting...")
 			stop = true
 		case <-ticker.C:
 			err = mainLoop.TickHandler()
 			if err != nil {
-				log.Println(err)
+				log.Error("%s", err)
 				stop = true
 			}
 		}

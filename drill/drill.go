@@ -1,18 +1,19 @@
 package main
 
 import (
+	"btctl/dmc"
+	"btctl/ipt"
+	"btctl/util"
 	"bufio"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"strings"
 	"time"
-	"btctl/dmc"
-	"btctl/ipt"
-	"btctl/util"
 )
+
+var log = util.MustGetLogger("drill")
 
 func drill(path string) error {
 	usageFile, err := os.Open(path)
@@ -22,7 +23,7 @@ func drill(path string) error {
 	defer func () {
 		err := usageFile.Close()
 		if err != nil {
-			log.Printf("Failed to close file '%s': %s.", usageFile.Name(), err)
+			log.Error("Failed to close file '%s': %s.", usageFile.Name(), err)
 		}
 	}()
 
@@ -91,13 +92,14 @@ func invalidDataErr(data string) error {
 
 func main() {
 	usageFilePath := flag.String("source", "network-usage.txt", "collected network usage stat file")
-	flag.Parse()
+	util.InitFlags()
 
 	if flag.NArg() != 0 {
 		flag.Usage()
 		os.Exit(2)
 	}
 
+	util.MustInitLogging(true)
 	err := drill(*usageFilePath)
 
 	if err != nil {
