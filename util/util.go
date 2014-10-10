@@ -21,10 +21,10 @@ type MainLoop interface {
 }
 
 var log = MustGetLogger("util")
-var debugMode *bool;
+var debugMode = false;
 
 func InitFlags() {
-	debugMode = flag.Bool("debug", false, "debug mode")
+	flag.BoolVar(&debugMode, "debug", false, "debug mode")
 	flag.Parse()
 }
 
@@ -37,7 +37,7 @@ func MustInitLogging(withTime bool) {
 		timeFormat = "%{time:2006.01.02 15:04:05} "
 	}
 
-	if debugMode != nil && *debugMode {
+	if debugMode {
 		level = logging.DEBUG
 		format = " %{shortfile} " + format
 		timeFormat = "%{time:2006.01.02 15:04:05.000} "
