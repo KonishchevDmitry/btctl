@@ -54,10 +54,7 @@ func readUsageData(scanner *bufio.Scanner) error {
 			continue
 		}
 
-		if e := processor.OnNetworkUsageStat(statTime, stat); e != nil {
-			return e
-		}
-
+		processor.OnNetworkUsageStat(statTime, stat)
 		prevStatTIme = statTime
 	}
 

@@ -22,8 +22,7 @@ type Dmc struct {
 	noUsageSince time.Time
 }
 
-// TODO: error?
-func (dmc *Dmc) OnNetworkUsageStat(statTime time.Time, stat ipt.NetworkUsage) error {
+func (dmc *Dmc) OnNetworkUsageStat(statTime time.Time, stat ipt.NetworkUsage) {
 	var decisionMade = false
 
 	if ! dmc.lastStatTime.IsZero() {
@@ -41,8 +40,6 @@ func (dmc *Dmc) OnNetworkUsageStat(statTime time.Time, stat ipt.NetworkUsage) er
 
 	dmc.lastStat = stat
 	dmc.lastStatTime = statTime
-
-	return nil
 }
 
 func (dmc *Dmc) onNetworkUsageStat(statTime time.Time, stat ipt.NetworkUsage) bool {
