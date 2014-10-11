@@ -17,7 +17,7 @@ func GetNetworkUsage(chain string) (stat NetworkUsage, err error) {
 	var packets, bytes uint64
 
 	for _, iptables := range(allIptables) {
-		stdout, err = iptables("-L", "-nvx")
+		stdout, err = iptables("-L", "-nvxw")
 		if err != nil {
 			return
 		}
