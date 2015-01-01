@@ -1,6 +1,8 @@
 package main
 
 import (
+	"btctl/controller"
+	"btctl/dmc"
 	"btctl/ipt"
 	"btctl/util"
 	"flag"
@@ -9,32 +11,46 @@ import (
 	"time"
 )
 
-type controller struct {
+type btctl struct {
 	iptablesChain string
 	controllerBinaryPath string
 	users []string
 
-	stat ipt.NetworkUsage
+	dmc dmc.Dmc
+	controllers []controller.Controller
 }
 
 var log = util.MustGetLogger("btctl")
 
-func (c *controller) Init() error {
+func (b *btctl) Init() error {
+	for i := range b.controllers {
+		b.controllers[i].Init()
+	}
+
 	return nil
 }
 
-func (c *controller) OnTick() (err error) {
-	stat, err := ipt.GetNetworkUsage(c.iptablesChain)
+func (b *btctl) OnTick() (err error) {
+	stat, err := ipt.GetNetworkUsage(b.iptablesChain)
 	if err != nil {
 		return util.Error("Unable to get network usage stats: %s", err)
 	}
 
-	c.stat = stat
+	// TODO: remember last decision
+	decision := b.dmc.OnNetworkUsageStat(time.Now(), stat)
+	if decision != dmc.NO_DECISION {
+		for i := range b.controllers {
+			b.controllers[i].OnDecision(decision)
+		}
+	}
 
 	return nil
 }
 
-func (c *controller) Close() {
+func (b *btctl) Close() {
+	for i := range b.controllers {
+		b.controllers[i].Close()
+	}
 }
 
 func main() {
@@ -50,9 +66,10 @@ func main() {
 
 	util.MustInitLogging(false)
 
-	util.Loop(&controller{
+	util.Loop(&btctl{
 		iptablesChain: *iptablesChain,
 		controllerBinaryPath: *controllerBinaryPath,
 		users: strings.Split(*users, ","),
+		controllers: []controller.Controller{{}},
 	}, time.Second)
 }

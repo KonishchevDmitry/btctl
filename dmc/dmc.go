@@ -15,14 +15,26 @@ const noUsageMoratoriumTime = 1 * time.Minute
 
 var log = util.MustGetLogger("dmc")
 
+
 type Decision int
 
 const (
-	_ Decision = iota
-	NO_DECISION
+	NO_DECISION Decision = iota
 	START
 	STOP
 )
+
+func (decision Decision) String() string {
+	switch decision {
+	case START:
+		return "start"
+	case STOP:
+		return "stop"
+	default:
+		return "unknown"
+	}
+}
+
 
 type Dmc struct {
 	lastStat ipt.NetworkUsage
@@ -61,12 +73,14 @@ func (dmc *Dmc) onNetworkUsageStat(statTime time.Time, stat ipt.NetworkUsage) bo
 	}
 
 	period := statTime.Sub(dmc.lastStatTime)
-	if period < NetworkUsageCollectionPeriod / 2 {
-		log.Error("Clock screw detected!")
-		return false
-	}
+	// TODO
+//	if period < NetworkUsageCollectionPeriod / 2 {
+//		log.Error("Clock screw detected!")
+//		return false
+//	}
 
-	var floatPeriod = float64(period * 10 / time.Second) / 10
+	state := "inactive"
+	floatPeriod := float64(period * 10 / time.Second) / 10
 	packetsSpeed := float64(packets) / floatPeriod
 	bytesSpeed := float64(bytes) / floatPeriod
 
@@ -90,20 +104,21 @@ func (dmc *Dmc) onNetworkUsageStat(statTime time.Time, stat ipt.NetworkUsage) bo
 		}
 
 		dmc.moratoriumTill = statTime.Add(moratoriumTime)
+		state = "active"
 	} else if dmc.moratoriumTill.IsZero() {
 		dmc.expireMoratoriumIfNeeded(statTime)
 	}
 
 	// TODO
-	log.Debug("Usage: %s %d/%d %.1f/%.1f", statTime.Format("2006.01.02 15:04:05"),
-		packets, bytes, packetsSpeed, bytesSpeed)
+	log.Debug("Usage: %s %d/%d %.1f/%.1f -> %s", statTime.Format("2006.01.02 15:04:05"),
+		packets, bytes, packetsSpeed, bytesSpeed, state)
 
 	return true
 }
 
 func (dmc *Dmc) expireMoratoriumIfNeeded(statTime time.Time) {
 	// Turn off moratorium if it's expired
-	if dmc.moratoriumTill.Unix() <= statTime.Unix() {
+	if !dmc.moratoriumTill.IsZero() && dmc.moratoriumTill.Unix() <= statTime.Unix() {
 		dmc.turnOffMoratorium("moratorium time has expired")
 	} else if !dmc.noUsageSince.IsZero() && statTime.Sub(dmc.noUsageSince) >= noUsageMoratoriumTime {
 		dmc.turnOffMoratorium("zero network usage")
