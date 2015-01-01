@@ -15,6 +15,15 @@ const noUsageMoratoriumTime = 1 * time.Minute
 
 var log = util.MustGetLogger("dmc")
 
+type Decision int
+
+const (
+	_ Decision = iota
+	NO_DECISION
+	START
+	STOP
+)
+
 type Dmc struct {
 	lastStat ipt.NetworkUsage
 	lastStatTime time.Time
@@ -22,24 +31,24 @@ type Dmc struct {
 	noUsageSince time.Time
 }
 
-func (dmc *Dmc) OnNetworkUsageStat(statTime time.Time, stat ipt.NetworkUsage) {
-	var decisionMade = false
+func (dmc *Dmc) OnNetworkUsageStat(statTime time.Time, stat ipt.NetworkUsage) Decision {
+	decisionMade := false
 
 	if ! dmc.lastStatTime.IsZero() {
 		decisionMade = dmc.onNetworkUsageStat(statTime, stat)
 	}
 
-	if !dmc.moratoriumTill.IsZero() {
-		// Turn off moratorium if it's expired
-		if decisionMade && dmc.moratoriumTill.Unix() <= statTime.Unix() {
-			dmc.turnOffMoratorium("moratorium time has expired")
-		} else if !dmc.noUsageSince.IsZero() && statTime.Sub(dmc.noUsageSince) >= noUsageMoratoriumTime {
-			dmc.turnOffMoratorium("zero network usage")
-		}
-	}
-
 	dmc.lastStat = stat
 	dmc.lastStatTime = statTime
+
+	switch {
+	case !decisionMade:
+		return NO_DECISION
+	case dmc.moratoriumTill.IsZero():
+		return START
+	default:
+		return STOP
+	}
 }
 
 func (dmc *Dmc) onNetworkUsageStat(statTime time.Time, stat ipt.NetworkUsage) bool {
@@ -81,6 +90,8 @@ func (dmc *Dmc) onNetworkUsageStat(statTime time.Time, stat ipt.NetworkUsage) bo
 		}
 
 		dmc.moratoriumTill = statTime.Add(moratoriumTime)
+	} else if dmc.moratoriumTill.IsZero() {
+		dmc.expireMoratoriumIfNeeded(statTime)
 	}
 
 	// TODO
@@ -90,8 +101,17 @@ func (dmc *Dmc) onNetworkUsageStat(statTime time.Time, stat ipt.NetworkUsage) bo
 	return true
 }
 
+func (dmc *Dmc) expireMoratoriumIfNeeded(statTime time.Time) {
+	// Turn off moratorium if it's expired
+	if dmc.moratoriumTill.Unix() <= statTime.Unix() {
+		dmc.turnOffMoratorium("moratorium time has expired")
+	} else if !dmc.noUsageSince.IsZero() && statTime.Sub(dmc.noUsageSince) >= noUsageMoratoriumTime {
+		dmc.turnOffMoratorium("zero network usage")
+	}
+}
+
 func (dmc *Dmc) turnOffMoratorium(reason string) {
 	log.Info("Turn off the moratorium: %s.", reason)
-	dmc.moratoriumTill = *new(time.Time)
-	dmc.noUsageSince = *new(time.Time)
+	dmc.moratoriumTill = time.Time{}
+	dmc.noUsageSince = time.Time{}
 }

@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-type MainLoop interface {
+type mainLoop interface {
 	Init() error
 	OnTick() error
 	Close()
@@ -68,7 +68,7 @@ func SetupSignalHandling() <-chan os.Signal {
 	return channel
 }
 
-func Loop(mainLoop MainLoop, tickInterval time.Duration) {
+func Loop(mainLoop mainLoop, tickInterval time.Duration) {
 	var err error = nil
 
 	signalChannel := SetupSignalHandling()

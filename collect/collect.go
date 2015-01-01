@@ -78,6 +78,11 @@ func main() {
 	usageFilePath := flag.String("o", "network-usage.txt", "path to write network usage statistics to")
 	util.InitFlags()
 
+	if flag.NArg() != 0 {
+		flag.Usage()
+		os.Exit(2)
+	}
+
 	util.MustInitLogging(false)
 
 	loop := &collector{iptablesChain: *iptablesChain, usageFilePath: *usageFilePath}
