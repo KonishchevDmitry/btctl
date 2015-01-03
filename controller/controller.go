@@ -8,27 +8,37 @@ import (
 )
 
 type Controller struct {
+	user string
+	binaryPath string
+
 	state dmc.Decision
+
 	decision dmc.Decision
+	decisionChannel chan dmc.Decision
+
 	controlTimer *time.Timer
 	controllerExecuting bool
 	controllerChannel chan dmc.Decision
-	decisionChannel chan dmc.Decision
-	stopped chan bool
+
 	stop chan bool
+	stopped chan bool
 }
 
-const controlPeriod time.Duration = 5 * time.Second
+const controlPeriod time.Duration = time.Minute
 
 var log = util.MustGetLogger("controller")
 
-func (c *Controller) Init() {
-	// TODO
-	c.controllerChannel = make(chan dmc.Decision)
-	c.decisionChannel = make(chan dmc.Decision, 1)
-	c.stopped = make(chan bool)
-	c.stop = make(chan bool, 1)
-	go c.loop()
+func New(user string, binaryPath string) *Controller {
+	controller := &Controller{
+		user: user,
+		binaryPath: binaryPath,
+		controllerChannel: make(chan dmc.Decision, 1),
+		decisionChannel: make(chan dmc.Decision, 1),
+		stop: make(chan bool, 1),
+		stopped: make(chan bool),
+	}
+	go controller.loop()
+	return controller
 }
 
 func (c *Controller) OnDecision(decision dmc.Decision) {
@@ -36,12 +46,10 @@ func (c *Controller) OnDecision(decision dmc.Decision) {
 }
 
 func (c *Controller) Close() {
-	if c.stop != nil {
-		select {
-		case c.stop <- true:
-		}
-		<- c.stopped
+	select {
+	case c.stop <- true:
 	}
+	<- c.stopped
 }
 
 func (c *Controller) loop() {
@@ -76,37 +84,30 @@ func (c *Controller) loop() {
 }
 
 func (c *Controller) control() {
-	var action string
+	command := []string{"sudo", "-H", "-u", c.user, c.binaryPath}
 
 	if c.decision == dmc.START {
-		action = "start-all"
+		command = append(command, "--start-all")
 	} else if c.decision == dmc.STOP {
-		action = "stop-all"
+		command = append(command, "--stop-all")
 	}
+
+	commandString := strings.Join(command, " ")
+	log.Debug("Executing `%s`...", commandString)
+
+	go func(state dmc.Decision) {
+		_, err := util.RunCmd(command[0], command[1:]...)
+
+		if err != nil {
+			log.Error("`%s` failed: %s", commandString, err)
+			state = dmc.NO_DECISION
+		}
+
+		c.controllerChannel <- state
+	}(c.decision)
 
 	c.controlTimer.Stop()
 	c.controllerExecuting = true
-
-	go func(decision dmc.Decision) {
-		command := make([]string, 0)
-		command = append(command, "ssh", "server.lan", "/opt/bin/transmission-controller")
-		if action != "" {
-			command = append(command, "--" + action)
-		}
-		log.Debug("Executing `%s`...", strings.Join(command, " "))
-		//		command := "false"
-		//		stdout, err := util.RunCmd(command, "GGGG")
-		//
-		//		if err == nil {
-		//			log.Error("%s", stdout)
-		//		} else {
-		//			err = util.Error("%s execution error: %s", command, err)
-		//			log.Error("%s", err)
-		//			decision = dmc.NO_DECISION
-		//		}
-
-		c.controllerChannel <- decision
-	}(c.decision)
 }
 
 func (c *Controller) checkCurrentState() bool {

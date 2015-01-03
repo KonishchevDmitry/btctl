@@ -41,8 +41,8 @@ func drill(path string) error {
 }
 
 func readUsageData(scanner *bufio.Scanner) error {
-	var processor dmc.Dmc
 	var prevStatTIme time.Time
+	processor := dmc.Dmc{DrillMode: true}
 
 	for scanner.Scan() {
 		statTime, stat, err := getNetworkUsage(scanner.Text())

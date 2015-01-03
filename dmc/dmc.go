@@ -37,6 +37,7 @@ func (decision Decision) String() string {
 
 
 type Dmc struct {
+	DrillMode bool
 	lastStat ipt.NetworkUsage
 	lastStatTime time.Time
 	moratoriumTill time.Time
@@ -73,11 +74,10 @@ func (dmc *Dmc) onNetworkUsageStat(statTime time.Time, stat ipt.NetworkUsage) bo
 	}
 
 	period := statTime.Sub(dmc.lastStatTime)
-	// TODO
-//	if period < NetworkUsageCollectionPeriod / 2 {
-//		log.Error("Clock screw detected!")
-//		return false
-//	}
+	if period < NetworkUsageCollectionPeriod / 2 {
+		log.Error("Clock screw detected!")
+		return false
+	}
 
 	state := "inactive"
 	floatPeriod := float64(period * 10 / time.Second) / 10
@@ -109,9 +109,12 @@ func (dmc *Dmc) onNetworkUsageStat(statTime time.Time, stat ipt.NetworkUsage) bo
 		dmc.expireMoratoriumIfNeeded(statTime)
 	}
 
-	// TODO
-	log.Debug("Usage: %s %d/%d %.1f/%.1f -> %s", statTime.Format("2006.01.02 15:04:05"),
-		packets, bytes, packetsSpeed, bytesSpeed, state)
+	var timeString string
+	if dmc.DrillMode {
+		timeString = " " + statTime.Format("2006.01.02 15:04:05")
+	}
+
+	log.Debug("Usage:%s %d/%d %.1f/%.1f -> %s", timeString, packets, bytes, packetsSpeed, bytesSpeed, state)
 
 	return true
 }
