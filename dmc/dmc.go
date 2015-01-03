@@ -92,7 +92,7 @@ func (dmc *Dmc) onNetworkUsageStat(statTime time.Time, stat ipt.NetworkUsage) bo
 			}
 		} else {
 			if !dmc.noUsageSince.IsZero() {
-				dmc.noUsageSince = *new(time.Time)
+				dmc.noUsageSince = time.Time{}
 			}
 		}
 	}
@@ -105,7 +105,7 @@ func (dmc *Dmc) onNetworkUsageStat(statTime time.Time, stat ipt.NetworkUsage) bo
 
 		dmc.moratoriumTill = statTime.Add(moratoriumTime)
 		state = "active"
-	} else if dmc.moratoriumTill.IsZero() {
+	} else if !dmc.moratoriumTill.IsZero() {
 		dmc.expireMoratoriumIfNeeded(statTime)
 	}
 
@@ -120,8 +120,7 @@ func (dmc *Dmc) onNetworkUsageStat(statTime time.Time, stat ipt.NetworkUsage) bo
 }
 
 func (dmc *Dmc) expireMoratoriumIfNeeded(statTime time.Time) {
-	// Turn off moratorium if it's expired
-	if !dmc.moratoriumTill.IsZero() && dmc.moratoriumTill.Unix() <= statTime.Unix() {
+	if dmc.moratoriumTill.Unix() <= statTime.Unix() {
 		dmc.turnOffMoratorium("moratorium time has expired")
 	} else if !dmc.noUsageSince.IsZero() && statTime.Sub(dmc.noUsageSince) >= noUsageMoratoriumTime {
 		dmc.turnOffMoratorium("zero network usage")
