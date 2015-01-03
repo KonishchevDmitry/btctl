@@ -61,7 +61,7 @@ func main() {
 		os.Exit(2)
 	}
 
-	util.MustInitLogging(false)
+	util.MustInitLogging(true)
 
 	users := strings.Split(*commaUsers, ",")
 	controllers := make([]*controller.Controller, len(users))
